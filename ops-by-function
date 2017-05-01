@@ -1,0 +1,78 @@
+MISC:
+ 0 next    \ fetch next word of opcodes
+63 syscall \ interface with outside world
+
+DSTACK:
+ 3 lit
+ 1 dup
+ 4 drop
+ 5 swap
+ 6 over
+ 7 nip ( a b -- b )
+ 8 rot
+
+RSTACK/FLOW:
+ 9 >r
+10 >>r \ : >>r dup >r ;
+11 r@
+12 r>
+13 rdrop
+15 branch
+16 ?branch ( FL: flag -- ) \ branch if top of flag stack is true
+17 0branch ( FL: flag -- ) \ or false
+ 2 call
+14 ;
+18 ?; ( FL: flag -- ) \ return if top of flag stack is true
+19 0; ( FL: flag -- ) \ or false
+20 t; ( FL: t -- t | f -- ) \ return if true (and leave t flag)
+21 f; ( FL: f -- f | t -- ) \ ditto for false
+
+
+FLAG STACK:
+22 ?   ( x -- x ) ( FL: -- flag ) \ : ? dup 0 <> ;
+23 0=  ( x -- ) ( FL: -- flag )
+24 =   ( u1 u2 -- ) ( FL: -- flag )
+25 <   ( u1 u2 -- ) ( FL: -- flag )
+26 &   ( FL: flag0 flag1 -- flag2 )
+27 |   ( FL: flag0 flag1 -- flag2 )
+28 ^   ( FL: flag0 flag1 -- flag2 )
+29 ~   ( FL: flag -- flag' )
+
+LOGICAL:
+30 and \ AND OR XOR NOT for data stack
+31 or
+32 xor
+33 not
+34 >>
+35 s>> \ signed shift right
+36 <<
+37 <<> \ rotate left
+
+MATH:
+38 +
+39 -
+40 *
+41 /
+42 /mod
+43 1+
+44 1-
+45 4+
+46 4-
+47 4*
+48 8+
+
+MEMORY:
+49 >a  ( addr -- ) \ move top of stack to A (address) register
+50 a   ( -- addr ) \ copy A register to top of stack
+51 @a  ( -- x ) \ Fetch from address in A register
+52 !a  ( x -- ) \ Store to address in A register
+53 +@  ( A=A+4:( -- x ) \ Increment A, fetch from address
+54 b+@ ( A=A+1:( -- b ) \ ditto, but byte fetch
+55 +!  ( A=A+4:( x -- ) \ Increment A, store to address
+56 b+! ( A=A+1:( b -- ) \ ditto, but byte store
+57 @   ( addr -- x ) \ normal Forth fetches/stores
+58 !   ( x addr -- )
+59 h@  \ ditto for half-word (16-bit) values
+60 h!
+61 b@  \ ditto for byte values
+62 b!

@@ -1,0 +1,13 @@
+Fronds interface docs
+
+alt-x     exit
+alt-n     move cursor right
+alt-h     move cursor left
+alt-r     go to the definition of the word under the cursor
+alt-g     move cursor back (wherever it came from)
+alt-c     move up one definition
+alt-t     move down one definition
+
+alt-s     starts search mode which ends when you release all the keys. space key does nothing, so you can switch to holding that if you want. Type a forth word then release all the keys. If the word has a defintion the editor will jump to that definition.
+
+alt-space and hold space (or alt) while you type a forth word or a number. When you release the word will be executed (or if it's a number it will be placed on the stack.) Output is limited to ninety something white characters which are placed in the history section below the source display.

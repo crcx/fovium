@@ -1,0 +1,15 @@
+Thoughts:
+	There aught to be a "dashboard" with the following things:
+		clock
+		status notifications (email arrived, download finished, IMs, battery, etc)
+		basic help (including a single key to press to get a tutorial)
+		context help (specific, relivant actions)
+		display of clipboard
+		stack
+		output history/message log
+	
+	Editor display is normally a vertical list of things, such as:
+		definitions (either in editor order, or a list of definitions that match some search query, etc)
+		data/metadata for some word or object
+
+	Types of search: exact name, partial name, prefix, words who's definition contains word x, sequence of words

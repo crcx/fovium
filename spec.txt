@@ -1,0 +1,352 @@
+FOVIUM VIRTUAL MACHINE SPECIFICATION
+
+INTRODUCTION
+
+	This document (when completed) will describe the fovium virtual machine in
+	sufficient detail that you could write a compatible implementation without
+	looking at an existing implementation. This document will be the normative
+	reference.
+
+
+TERMINOLOGY
+
+	client     - The software running inside fovium.
+	image      - A single continuous block of memory containing the client.
+	word       - 32-bits
+	half-word  - 16-bits
+	fetch      - retrieve from memory
+	store      - write to memory
+
+
+OVERVIEW
+
+	Fovium is a simple stack-based virtual machine. It has a data stack, flag
+	stack and return stack all of which are easily accessible to the client.
+
+	Fovium provides (through a syscall mechanism) access to input events and
+	textual (and later graphical) output.
+
+	Fovium images come in two flavors: big-endian and little-endian. Compliant
+	Fovium implementations must support both.
+
+
+IMAGES OVERVIEW
+
+	The client is stored in a single image. This is presumably kept in a file. 
+	Fovium allocates 1MiB of memory, puts the image at the beginning of it and
+	starts executing it.
+
+
+INITIALIZATION
+
+	To start up the client, Fovium loads the image into the beginning of a 1MiB
+	block of memory so that it is accessible to the client at memory address 0.
+	Fovium then checks the endianness of the image by looking at the first
+	instruction word of the image which must contain just a branch instruction.
+	Then Fovium starts executing the image at address 0 with all registers and
+	stacks initialized to nulls.
+
+
+INSTRUCTION ENCODING
+
+	Opcodes are 6 bits long. They are packed into 32-bit words starting with
+	the low bits. Instruction words are always aligned in memory. Most
+	instructions consist entirely of the opcode, the others (lit and branches)
+	have a single operand as explained below.
+
+	Note that the last instruction field is only 2 bits wide, so most
+	instructions won't fit in that position. As it turns out this adds no
+	complexity to fovium, because the 0 opcode (next) loads the next
+	instruction word, and so fovium need not keep track of which opcode
+	position it is at, and can instead simply shift the instruction word right
+	until it reaches a 0 opcode.
+
+	BRANCH ENCODING
+
+	The call and branch instructions get their target address from the
+	remaining bits of the instruction word (after their opcode is removed) by
+	placing these bits two from the low end. The two lowest bits of the target
+	address are always 0 because all instruction words are aligned.
+
+	LITERAL ENCODING
+
+	The lit instruction gets its value from the next 32-bit word that would be
+	loaded for the instruction stream. It is important to note that while the
+	lit instruction does advance the instruction word reader to the next word
+	it does not cause fovium to read in a new instruction word. ie after a lit
+	instruction, execution continues as normal in the current instruction word
+	with the next opcode after the lit opcode.
+
+	EXAMPLE
+
+	Here's a quick example of a few instructions. They are represented with
+	the low bits on the right, one character per bit, and one word per line.
+
+	00000000000000++++++llllllllllll
+	00000000000000000000000000000001
+	00000000000000000000000000000010
+	aaaaaaaaaaaaaaaaaaaaaaaaaacccccc
+	00000000000000000000000000;;;;;;
+
+	symbol:                      meaning:
+	llllll                       opcode for lit
+	++++++                       opcode for +
+	cccccc                       opcode for call
+	aaaaaaaaaaaaaaaaaaaaaaaaaa   target address for call instruction
+	;;;;;;                       opcode for return
+
+	In the language Forth, you might get the above code with this source:
+
+	: foo 1 2 + . ;
+
+	So first (low 6 bits of the first instruction word) is the lit
+	instruction. This loads the next instruction word (second line) onto the
+	stack. Now the second opcode (in the first line) is also lit. This grabs
+	the next instruction word (third line) and pushes it onto the stack. The
+	third opcode (still first line) is + which is executed, thus adding the 1
+	and 2 pushed by the lit instructions. The next opcode (still first line)
+	is 0 which tells Fovium to load the next instruction word (fourth line)
+	and start executing it.
+
+	First opcode on the fourth line is a call instruction. First the call
+	instruction pushes the return stack with the address of the next unused
+	instruction word (5th line above). Then it calculates the target address
+	by using the remaining bits from the instruction word two bits from the
+	low end (that is aaaaaaaaaaaaaaaaaaaaaaaa00). Then it loads the next
+	instruction from that address and continues execution as normal from
+	there. In this case we expect that at some point the code will return to
+	this part of memory and execute the fifth instruction word above (that we
+	pushed the address for.) Its first opcode is a return, which pops the
+	return stack, and branches to the address it contains, (and reloads the
+	instruction word from that address.)
+
+
+STACKS AND REGISTERS
+
+	Fovium maintains three stacks and three registers.
+
+	STACKS
+
+	1) The data stack can hold 1024 32-bit integers.
+
+	2) The return stack can hold 1024 32-bit integers.
+
+	3) The flag stack holds exactly 32 1-bit flags. The flag stack is
+	circular, which means if you pop it 32 times it is in exactly the same
+	state.
+
+	The data stack is used for parameter passing for just about everything.
+
+	The return stack's main purpose is to hold the return addresses for calls.
+	but it is frequently used to store other things such as loop counters.
+
+	The flag stack holds true/false flags. Flags are pushed by comparison
+	operators and popped by conditional branches and conditional returns.
+
+	REGISTERS
+
+	Fovium must maintain the following registers outside of the client's 1MiB
+	memory space:
+
+	1) IP (instruction pointer.) This keeps track of where the next instruction
+	word will come from. It is incremented (to the next word) by the 'lit' and
+	'next' instructions. It is changed considerably by 'call', 'branch' and
+	'return' instructions.
+
+	2) IW (instruction word.) This stores the current instruction word while
+	it is being executed. This must be stored outside the client's memory
+	space so that it is not disturbed even if the memory where this word came
+	from is changed while it is executing.
+
+	3) A (address register.) This register is used directly by the client with
+	instructions such as '+@', 'b+!' and '>a'.
+
+
+INSTRUCTIONS
+
+	STACK DIAGRAMS
+	
+	In the documentation below, there is a stack diagram for each word
+	that affects the stack. A stack diagram shows the relevant stack items
+	before and after the operation. These diagrams only show the stack items at
+	the top that are either read or changed. A stack diagram looks like this:
+
+	( x y -- z )
+
+	This indicates that the operation we're talking about takes two parameters
+	(represented by x and y) and returns one (z). If any of the stack items
+	represented in the stack diagrams are the same, this means that they have
+	the same value. For example, this diagram:
+
+	( x y -- y )
+
+	indicates that the return value is the same as the first parameter.
+
+	INSTRUCTIONS
+
+	Opcode
+	| 
+	V   Name     Description
+	00  next     fetch next word of opcodes
+	01  dup      ( x -- x x )
+	02  call     push current IP and branch. See BRANCH ENCODING above
+	03  lit      ( -- x ) see LITERAL ENCODING above
+	04  drop     ( x -- )
+	05  swap     ( x y -- y x )
+	06  over     ( x y -- x y x )
+	07  nip      ( x y -- y )
+	08  rot      ( x y z -- y z x )
+	09  >r       ( x -- ) push x onto the return stack
+	10  >>r      ( x -- x ) push x onto the return stack
+	11  r@       ( -- x ) get a copy of the top of the return stack
+	12  r>       ( -- x ) pop x off the return stack
+	13  rdrop    ( -- ) drop the top item from return stack 
+	14  ;        return (pop the return stack and branch to that address)
+	15  branch   see BRANCH ENCODING above
+	16  ?branch  pop flag stack and branch if true (See BRANCH ENCODING above)
+	17  0branch  pop flag stack and branch if true (See BRANCH ENCODING above)
+	18  ?;       pop flag stack and return if true
+	19  0;       pop flag stack and return if false
+	20  t;       exit if the top flag stack is true otherwise drop it
+	21  f;       exit if the top flag stack is false otherwise drop it
+	22  ?        ( x -- x ) push a flag which is false if x is 0
+	23  0=       ( x -- ) push a flag which is true if x is 0
+	24  =        ( x y -- ) push a flag which is true if x is equal to y
+	25  <        ( x y -- ) push a flag which is true if x is less than y
+	26  &        pop the flag stack. If false set the next flag to false.
+	27  |        pop the flag stack. If true set the next flag to true.
+	28  ^        pop the flag stack. If true toggle the next flag.
+	29  ~        toggle the top flag.
+	30  and      ( x y -- z ) return bitwise and of x and y
+	31  or       ( x y -- z ) return bitwise or of x and y
+	32  xor      ( x y -- z ) return bitwise xor of x and y
+	33  not      ( x y -- z ) return bitwise not of x and y
+	34  >>       ( x y -- z ) shift x right y bits (leaving the top y bits clear)
+	35  s>>      ( x y -- z ) shift x right y bits (leaving the top y bits the same as the high bit)
+	36  <<       ( x y -- z ) shift x left y bits (leaving the low y bits clear)
+	37  <<>      ( x y -- z ) rotate x left y bits
+	38  +        ( x y -- z ) return the sum of x and y
+	39  -        ( x y -- z ) return x minus y
+	40  *        ( x y -- z ) return x times y
+	41  /        ( x y -- z ) return x divided by y
+	42  /mod     ( x y -- modulus quotient ) return x mod y and x / y
+	43  1+       ( x -- y ) return one more than x
+	44  1-       ( x -- y ) return one less than x
+	45  4+       ( x -- y ) return four more than x
+	46  4-       ( x -- y ) return four less than x
+	47  4*       ( x -- y ) return four times x
+	48  8+       ( x -- y ) return eight more than x
+	49  >a       ( addr -- ) set A register to addr
+	50  a        ( -- addr ) return value of A register
+	51  @a       ( -- x ) fetch from address in A register
+	52  !a       ( x -- ) store to address in A register
+	53  +@       ( -- x ) increment A by 4 and fetch a word from it
+	54  b+@      ( -- b ) increment A by 1 and fetch a byte from it
+	55  +!       ( x -- ) increment A by 4 and store word it
+	56  b+!      ( b -- ) increment A by 1 and store a byte to it
+	57  @        ( addr -- x ) fetch (and return) word from addr
+	58  !        ( x addr -- ) store x (word) to addr
+	59  h@       ( x addr -- ) store half-word x to addr
+	60  h!       ( addr -- x ) fetch (and return) half-word from addr
+	61  b@       ( x addr -- ) store byte x to addr
+	62  b!       ( addr -- x ) fetch (and return) byte from addr
+	63  syscall  interface with outside world (see following section)
+
+
+SYSCALLS
+
+	To execute a syscall, put the syscall number on the stack and execute the
+	syscall instruction.
+
+	SUMMARY
+
+	#   name     stack effect    description
+	0   exit     ( x -- )        terminate the client (with return code x)
+	1   save     ( addr u -- )   save u bytes to mass storage
+	16  emit     ( c -- )        output ASCII char c
+	17  wait_event  ( us -- FL:true a b | FL:false )  get input
+	18  term_color  ( x -- )     change the color of future text output
+	19  term_move   ( x -- )     move the text output cursor to position x
+	
+
+	EXIT SYSCALL
+		syscall number: 0
+		stack effect: ( x -- )
+		description:
+
+			Stop executing the client. x is meant to be a return code if that
+			makes any sense for the environment in which fovium is running.
+
+	SAVE SYSCALL
+		syscall number: 1
+		stack effect: ( addr u -- )
+		description:
+
+			save u bytes (at addr) to mass storage. Save them such that they
+			could be executed as an image in fovium. Do not overwrite anything
+			in order to save.
+	
+	EMIT SYSCALL
+		syscall number: 16
+		stack effect: ( c -- )
+		description:
+
+			Output the printable ASCII character c. If c is not a printable
+			ascii character (32-126) print a single space. If c is 10 clear the
+			rest of the current line and advance the cursor to the beginning of
+			the next line.
+	
+	WAIT_EVENT SYSCALL
+		syscall number: 17
+		stack effect: ( us -- FL:true a b type ) or ( us -- FL:false )
+		description:
+			
+			Wait up to us microseconds for an input event. Wait only as long as
+			necessary (ie if there is an input event available already do not
+			wait at all.) If there is still no event to return by the time us
+			microseconds have passed then return false (on the flag stack.)
+
+			If an input event is available (or becomes available within the us
+			microseconds) push true onto the flag stack, and return the event
+			as three items on the stack. The first is the type and the others
+			have different meanings depending on the type.
+
+			BUTTON EVENT
+				type number: 0
+				b: up/down (0 means this button is now up, 1 means down)
+				a: button number (see keysyms.h FIXME)
+				(Note: this event type is used for buttons on the keyboard and
+				mouse.)
+
+			MOUSE EVENT
+				type number: 1
+				b: new x coordinate for pointing device
+				a: new y coordinate for pointing device
+				(Note: this event type is not yet implemented in the reference
+				implementation)
+
+	TERM_COLOR SYSCALL
+		syscall number: 18
+		stack effect: ( x -- )
+		description:
+
+			Change the foreground and background color that will be used for
+			further text output (using the 'emit' syscall.) The available
+			colors are (0-7):
+
+			black, red, green, yellow, blue, magenta, cyan, white
+
+			The low 3 bits of x is the new foreground color. The next higher
+			bit is ignored, then the next three bits determine the background
+			color.
+			
+	TERM_MOVE SYSCALL
+		syscall number: 19
+		stack effect: ( x -- )
+		description:
+			
+			Move the output cursor (which need not be visible) to position x.
+			The terminal is 100 characters wide by 35 characters tall. Position
+			0 is the top, left corner. Positions count up as they go right and
+			wrap around when they reach the end of the line. So, for example
+			the first character on the 2nd line would be at position 100.

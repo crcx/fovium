@@ -1,0 +1,17 @@
+CC := gcc
+
+.PHONY: all clean
+
+all: fovium
+
+fovium: fovium.o sdl.o
+	$(CC) -mwindows -lmingw32 -lSDLmain -L. -lSDL -lSDL_image -o $@ $^
+
+fovium.o: fovium.c
+	$(CC) -g -c -o $@ $<
+
+sdl.o: sdl.c sdl.h
+	$(CC) -g -c -o $@ $<
+
+clean:
+	del fovium *.o

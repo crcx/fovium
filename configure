@@ -1,0 +1,135 @@
+#!/usr/bin/perl
+
+use strict;
+
+my $arg;
+my $charg;
+my $emit;
+my $colors;
+my $bindir;
+my $fontpath;
+my $line;
+
+$emit = 0;
+$colors = 0;
+$bindir = "/usr/bin";
+$fontpath = "/usr/share/fovium_font.png";
+
+
+sub usage {
+	print <<EOF
+USAGE: ./configure [options]
+NOTE: for windoze ignore this script and just use the Makefile.win
+OPTIONS:
+   --stdout-emit     output ascii text to stdout for the emit syscall
+   --stdout-colors   output ansi color escape sequences for the term-color syscall
+   --term            enables both --stdout-emit and --stdout-colors
+   --bindir=PATH     directory fovium will be coppied into on "make install"
+   --fontpath=PATH/filename   filename for fovium font for "make install"
+   --prefix=PATH     same as: --bindir=PATH/bin --fontpath=PATH/share/fovium_font.png
+   -h, -?, --help  print this info
+EOF
+	;
+	exit 0;
+}
+    
+
+foreach $arg (@ARGV) {
+	if($arg =~ /^-[^-]/) {
+		$arg =~ s/^-//;
+		foreach $charg (split(/ ?/, $arg)) {
+			if($charg eq 'h') {
+				usage();
+			} elsif($charg eq '?') {
+				usage();
+			} else {
+				usage();
+			}
+		}
+	} else {
+		if($arg eq "--help") {
+			usage();
+		} elsif($arg eq "--usage") {
+			usage();
+		} elsif($arg eq "--stdout-emit") {
+			$emit = 1;
+		} elsif($arg eq "--stdout-colors") {
+			$colors = 1;
+		} elsif($arg =~ "^--bindir=") {
+			$arg =~ s/--bindir=//;
+			$arg =~ s/"//g;
+			$bindir = "$arg/";
+		} elsif($arg =~ "^--fontpath=") {
+			$arg =~ s/--fontpath=//;
+			$arg =~ s/"//g;
+			$fontpath = $arg;
+		} elsif($arg =~ "^--prefix=") {
+			$arg =~ s/--prefix=//;
+			$arg =~ s/"//g;
+			$bindir = "$arg/bin/";
+			$fontpath = "$arg/share/fovium_font.png";
+		} elsif($arg eq "--term") {
+			$emit = 1;
+			$colors = 1;
+		} else {
+			usage();
+		}
+	}
+}
+
+
+if(open(FD, "<Makefile.in") == 0) {
+	print "ERROR: couldn't open \"Makefile.in\"\n";
+	exit 1;
+}
+
+if(open(OUT, ">Makefile") == 0) {
+	print "ERROR: couldn't open \"Makefile\"\n";
+	exit 2;
+}
+
+while($line = <FD>) {
+	if($line =~ /^SDL_CFLAGS/) {
+		chop($line);
+		print OUT $line;
+		$line = `sdl-config --cflags`;
+		chop($line);
+		print OUT $line;
+		print OUT "\n";
+	} elsif($line =~ /^SDL_LDFLAGS/) {
+		chop($line);
+		print OUT $line;
+		$line = `sdl-config --cflags`;
+		chop($line);
+		print OUT $line;
+		print OUT ' ';
+		$line = `sdl-config --libs`;
+		chop($line);
+		print OUT $line;
+		print OUT "\n";
+	} elsif($line =~ /^FOVIUM_OPTIONS/) {
+		chop($line);
+		print OUT $line;
+		if($emit) {
+			print OUT " -DEMIT_TO_TERM ";
+		}
+		if($colors) {
+			print OUT " -DCOLOR_TO_TERM ";
+		}
+		print OUT "\n";
+	} elsif($line =~ /^BIN_DIR/) {
+		chop($line);
+		print OUT $line;
+		print OUT $bindir;
+		print OUT "\n";
+	} elsif($line =~ /^FONT_PATH/) {
+		chop($line);
+		print OUT $line;
+		print OUT $fontpath;
+		print OUT "\n";
+	} else {
+		print OUT $line;
+	}
+}
+
+close(FD);

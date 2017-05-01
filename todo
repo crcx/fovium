@@ -1,0 +1,35 @@
+ FRONDS
+     NEW KEYBINDING SYSTEM (main-loop)
+DONE	implement search qm
+DONE	switch to using main-loop
+DONE	delete source token
+	change colors
+	implement find-next
+	bind/implement edm-fwd
+	re-cycle block 336
+	enter source token
+	add definition (on go-to-def of not-defined word?)
+	delete definition (where you leave a definition that's now empty?)
+	edit/add comments
+	after self-hosting: make compiler automatically put ; at the end, remove v; from the end of all defs
+
+
+
+
+***	document dictionary structure
+	editor cursor should switch to being a single character when in ed-mode-letters
+DONE	make system for switching jumptable for up, down, left, right, in, out, key-presses
+	make it so dict definitions can be flagged as broken/undefined
+	enter an undefined word
+	make ed-go-to-def not push the history stack if the cursor is already there
+DONE	design key binder
+	edit metadata
+
+ OTHER
+
+	add: 0=; 0; and friends
+
+ FOVIUM
+	graphics api (including finding out when it's VBT)
+	networking api
+	finish spec

@@ -1,0 +1,15 @@
+Fovium is a small 32-bit stack VM.
+
+It was designed to create a simple and consistent platform for Fronds. But will
+perhaps be used for other things as well.
+
+See ops-by-function to see the opcodes.
+
+See spec.txt for a detailed description of the VM.
+
+
+To build type "make"
+
+To run type eg "./fovium fronds.img"
+
+See fronds.txt for how to use fronds

@@ -1,0 +1,31 @@
+CC := gcc
+
+.PHONY: all clean install
+
+FOVIUM_OPTIONS=
+BIN_DIR=
+FONT_PATH=
+
+SDL_CFLAGS=
+SDL_LDFLAGS=
+
+all: fovium
+
+fovium: fovium.o sdl.o keys.o
+	$(CC) $(SDL_LDFLAGS) -lSDL_image -o $@ $^
+
+install: fovium
+	cp fovium $(BIN_DIR)
+	cp fovium_font.png $(FONT_PATH)
+
+keys.o: keys.c keysyms.h
+	$(CC) $(CFLAGS) $(SDL_CFLAGS) $(FOVIUM_OPTIONS) -ggdb -c -o $@ $<
+
+fovium.o: fovium.c
+	$(CC) $(CFLAGS) $(SDL_CFLAGS) $(FOVIUM_OPTIONS) -ggdb -c -o $@ $<
+
+sdl.o: sdl.c sdl.h
+	$(CC) -DFONT_PATH=\"$(FONT_PATH)\" $(CFLAGS) $(SDL_CFLAGS) $(FOVIUM_OPTIONS) -ggdb -c -o $@ $<
+
+clean:
+	rm -f fovium *.o

@@ -1,0 +1,125 @@
+THIS FILE IS BASICALLY ME BRAINSTORMING THINGS BEFORE I WRITE THEM
+
+
+**** ED-GO-BACK stack ****
+
+Since properties (definition, comment, etc) in the dictionary don't link back
+to the dictionary entry, the history stack must know which definition and which
+property... or not... could just use the back-stack 
+
+history stack should have two elements:
+	address (dereferences to an object with a type/length)
+	position (where to put the cursor in that
+	rrr... really seems like sometimes we'll need a second position
+
+editor wants to know context, not just what you're editing. So either:
+	back-stack must contain more detailed records
+	editor peeks at previous entry in back-stack to see what to display around?
+	
+
+
+Usage scenarios:
+	in definition foo, hit ed-right to hilight bar
+	hit alt-( to edit comment for bar
+	hit alt-s to search for definition of baz
+	hit ed-back -> back to bar comment editing
+
+
+
+
+
+******* HOW DIALOGS SHOULD WORK
+
+There's a trigger on allup
+	possibly because there's bindings for imode changes?
+
+save ed-mode
+draw dialog and cursor/etc
+set letter>ed-mode
+set allup trigger
+
+
+
+
+
+***** EVENTS AND MODES *****
+
+DEFINITIONS
+
+	There are:
+
+	Input modes (imode, quasi-mode)
+		Usually imain, or if you're holding down keys, imod.
+		Letting go of all keys returns you to imain mode.
+		
+	Editor modes (ed-modes)
+		eg ed-word ed-dlg ed-letter
+
+
+FLOW
+
+	Keys are translated twice.
+
+	1) the tranlation tables of the current input mode is used to give a
+	meaning to the keypress. Example: in imain, key-c is mapped to ed-up.
+
+	2) the implementation of that meaning is looked up in the table for the
+	current edit mode. Example in "whole word" mode, fronds responds to ed-up
+	by executing ed-word-up
+
+
+IMPLEMENTATION
+	
+	Below was brainstorming before I wrote half of it. Probably largely BS
+
+	main-loop (event loop)
+		- imain-event
+			- imain-keypress
+				imain-keydown
+					key->ed-key-*
+						converts depending on input-mode to ed-key-something
+						BUG: key->ed-key-* sometimes returns ed-key-other the handler for which needs access to the original key paramiter (which is currently not saved)
+					imain-bind  (badly named?) perform actions that are the same regardless of ed-mode like quitting and starting a quasi-mode, etc.. You can override some actions in your ed-mode, but not these.
+					ed-ed-key dispatches to ed-mode to handle ed-key-* constant
+						ed-word-bind performs up, left, delete, char, etc on words
+						- ed-letters-bind performs up, left, delete, char, etc on letters
+						- ... you can write an object that is edited in a special way, by implementind another ed-mode here. it will get constants already translated into actions like ed-key-up, ed-key-left, ed-key-delete, etc, and some keys (like enter and space, numbers, alpha, shift) that you can do what you like with (by passing you ed-key-other and storing it somewhere for you.
+		- modmain
+			- ...
+
+
+
+REQIREMENTS
+
+	BASE (no keys down)
+		alt
+			c,n,t,h  move cursor
+			s
+				search mode where [a-z0-9] go to dialog
+		arrow keys: move cursor
+
+	ANY TIME
+		release all keys --> base
+		quit events must quit (close window and esc for now)
+		?break key?
+		?unstick keyboard key?
+	
+	ARROW KEYS, ETC MAP TO (ed-key-up, ed-key-follow, etc)
+		"key" binding table maps these translated keys to actions specific to the object being edited.
+		ed-mode-word (ed-word-bind)
+			ed-word-up ed-word-follow
+		ed-mode-letter (ed-letter-bind)
+			ed-letter-left ed-letter-follow?
+		ed-mode-definition
+			ed-def-up ed-def-down
+			ed-def-follow -> edit?
+		
+NEW IMPLEMENTATION
+
+	: keydown-handler \ tables to determine action based on imode,  ed-state to determine word to execute
+	: key-handler 0if drop ; then keydown-handler ;
+	: event-handler (check for window close) ? if drop ; then key-handler ;
+	: ?allup>imode keys-all-up? if allup>imode then ;
+	: events-handler wait-event ?allup>imode 2dup key-table-update event-handler ;
+	: new-main ed-display events-handler new-main ;;
+		
